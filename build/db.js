@@ -14,9 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.closeDB = exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
+let dbName = "exercise-api";
+if (process.env.NODE_ENV == 'test') {
+    dbName = "exercise-api-test";
+}
 const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
-    yield mongoose_1.default
-        .connect("mongodb://localhost:27017/exercise-api", {
+    yield mongoose_1.default.connect(`mongodb://localhost:27017/${dbName}`, {
         autoIndex: true,
     });
 });
