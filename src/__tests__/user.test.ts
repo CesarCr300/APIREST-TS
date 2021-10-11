@@ -23,7 +23,7 @@ afterEach(async () => {
 
 afterAll(async () =>await closeDB())
 
-describe("POST /api/login", ()=>{
+describe("POST /api/users/login", ()=>{
     test("By a user with an incorrect username", async()=>{
         const response = await request(app).post("/api/users/login").send({username: "fail", password:"user"})
         expect(response.body).toHaveProperty("message")
