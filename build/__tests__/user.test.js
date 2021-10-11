@@ -18,17 +18,53 @@ const db_1 = require("../db");
 const config_1 = __importDefault(require("../config"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const supertest_1 = __importDefault(require("supertest"));
+let userData = { "username": "", "password": "", "isAdmin": false, "id": "" };
+let adminData = { "username": "", "password": "", "isAdmin": true, "id": "" };
 beforeAll(() => __awaiter(void 0, void 0, void 0, function* () {
     yield (0, db_1.connectDB)();
 }));
 beforeEach(() => __awaiter(void 0, void 0, void 0, function* () {
     const responseUser = yield (0, supertest_1.default)(app_1.app).post("/api/users").send({ "username": "user", "password": "user" });
     const responseAdmin = yield (0, supertest_1.default)(app_1.app).post("/api/users").send({ "username": "admin", "password": "admin", "isAdmin": true });
+    userData.id = responseUser.body._id;
+    userData.username = responseUser.body.username;
+    userData.password = responseUser.body.password;
+    userData.isAdmin = responseUser.body.isAdmin;
+    adminData.id = responseAdmin.body._id;
+    adminData.username = responseAdmin.body.username;
+    adminData.password = responseAdmin.body.password;
+    adminData.isAdmin = responseAdmin.body.isAdmin;
 }));
 afterEach(() => __awaiter(void 0, void 0, void 0, function* () {
     yield model_1.User.deleteMany({});
 }));
 afterAll(() => __awaiter(void 0, void 0, void 0, function* () { return yield (0, db_1.closeDB)(); }));
+describe("POST /api/users", () => {
+    test("Create a new user", () => __awaiter(void 0, void 0, void 0, function* () {
+        const responseUser = yield (0, supertest_1.default)(app_1.app).post("/api/users").send({ "username": "user1", "password": "user1" });
+        expect(responseUser.status).toBe(200);
+        expect(responseUser.body).toHaveProperty("username");
+        expect(responseUser.body.username).toBe("user1");
+        const listUsers = yield model_1.User.find({});
+        expect(listUsers.length).toBe(3);
+        expect(listUsers[2]).toHaveProperty("username");
+        expect(listUsers[2]).toHaveProperty("_id");
+        expect(listUsers[2].username).toBe("user1");
+        expect(listUsers[2].isAdmin).toBe(false);
+    }));
+    test("Create a new admin", () => __awaiter(void 0, void 0, void 0, function* () {
+        const responseUser = yield (0, supertest_1.default)(app_1.app).post("/api/users").send({ "username": "admin1", "password": "admin1", "isAdmin": true });
+        expect(responseUser.status).toBe(200);
+        expect(responseUser.body).toHaveProperty("username");
+        expect(responseUser.body.username).toBe("admin1");
+        const listUsers = yield model_1.User.find({});
+        expect(listUsers.length).toBe(3);
+        expect(listUsers[2]).toHaveProperty("username");
+        expect(listUsers[2]).toHaveProperty("_id");
+        expect(listUsers[2].username).toBe("admin1");
+        expect(listUsers[2].isAdmin).toBe(true);
+    }));
+});
 describe("POST /api/users/login", () => {
     test("By a user with an incorrect username", () => __awaiter(void 0, void 0, void 0, function* () {
         const response = yield (0, supertest_1.default)(app_1.app).post("/api/users/login").send({ username: "fail", password: "user" });
@@ -81,5 +117,45 @@ describe("GET /api/users", () => {
         expect(responseUsers.body.length).toBe(2);
         expect(responseUsers.body[0]).toHaveProperty("_id");
         expect(responseUsers.body[1]).toHaveProperty("_id");
+    }));
+});
+describe("GET /api/users/idUser (PERMISSIONS ADMIN OR USER)", () => {
+    test("GET an user by another user", () => __awaiter(void 0, void 0, void 0, function* () {
+        const anotherUserToken = yield (0, supertest_1.default)(app_1.app).post("/api/users/login").send({ username: "user", password: "user" });
+        const token = anotherUserToken.body.token;
+        const responseUser = yield (0, supertest_1.default)(app_1.app).get(`/api/users/${adminData.id}`).set("access-token", token);
+        expect(responseUser.status).toBe(401);
+        expect(responseUser.body.message).toBe("Access Denied");
+    }));
+    test("GET an user from an admin", () => __awaiter(void 0, void 0, void 0, function* () {
+        const responseLoginAdmin = yield (0, supertest_1.default)(app_1.app).post("/api/users/login").send({ username: "admin", password: "admin" });
+        const token = responseLoginAdmin.body.token;
+        const responseUser = yield (0, supertest_1.default)(app_1.app).get(`/api/users/${userData.id}`).set("access-token", token);
+        expect(responseUser.status).toBe(200);
+        expect(responseUser.body).toHaveProperty("username");
+        expect(responseUser.body).toHaveProperty("isAdmin");
+        expect(responseUser.body.username).toBe("user");
+        expect(responseUser.body.isAdmin).toBe(false);
+    }));
+    test("GET an an user from the same user", () => __awaiter(void 0, void 0, void 0, function* () {
+        const responseLoginUser = yield (0, supertest_1.default)(app_1.app).post("/api/users/login").send({ username: "user", password: "user" });
+        const token = responseLoginUser.body.token;
+        const responseUser = yield (0, supertest_1.default)(app_1.app).get(`/api/users/${userData.id}`).set("access-token", token);
+        expect(responseUser.status).toBe(200);
+        expect(responseUser.body).toHaveProperty("username");
+        expect(responseUser.body).toHaveProperty("isAdmin");
+        expect(responseUser.body.username).toBe("user");
+        expect(responseUser.body.isAdmin).toBe(false);
+    }));
+});
+describe("PATCH /api/users/idUser", () => {
+    test("UPDATE a user by the same user", () => __awaiter(void 0, void 0, void 0, function* () {
+        const responseLoginUser = yield (0, supertest_1.default)(app_1.app).post(`/api/users/login`).send({ username: "user", password: "user" });
+        const token = responseLoginUser.body.token;
+        const responseUpdateUser = yield (0, supertest_1.default)(app_1.app).patch(`/api/users/${userData.id}`).send({ password: "newPassword" }).set("access-token", token);
+        const updatedUser = yield model_1.User.findById(userData.id);
+        expect(responseUpdateUser.status).toBe(200);
+        expect(responseUpdateUser.body.password).not.toBe(userData.password);
+        expect(updatedUser.validatePassword("newPassword")).resolves.toBe(true);
     }));
 });

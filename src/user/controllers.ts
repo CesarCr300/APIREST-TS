@@ -51,7 +51,7 @@ export const updateUser = async (req: Request, res: Response) => {
         console.log(password)
         userFounded.password = await userFounded.createPassword(password)
         await userFounded.save()
-        res.status(200).json(userFounded)
+        res.json(userFounded)
     }
     catch (err: any) {
         console.log(err)

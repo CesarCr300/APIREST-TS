@@ -65,7 +65,7 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         console.log(password);
         userFounded.password = yield userFounded.createPassword(password);
         yield userFounded.save();
-        res.status(200).json(userFounded);
+        res.json(userFounded);
     }
     catch (err) {
         console.log(err);
